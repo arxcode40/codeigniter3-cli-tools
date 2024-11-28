@@ -89,7 +89,6 @@ class Spark extends CI_Controller {
 		'list' => array(
 			'usage' => 'list'
 		),
-		'make-auth' => array(),
 		'make-config' => array(
 			'usage' => 'make-config <name> [options]',
 			'arguments' => array(
@@ -705,11 +704,6 @@ class Spark extends CI_Controller {
 		echo "\n";
 	}
 
-	public function make_auth()
-	{
-		echo "\nComing soon.\n\n";
-	}
-
 	public function make_config($name, ...$params)
 	{
 		$name = strtolower($name);
@@ -1044,11 +1038,6 @@ class Spark extends CI_Controller {
 		$template = read_file("{$this->_template_path}migration.template");
 		$template = str_replace('{class}', 'Migration_'.ucfirst($name), $template);
 		write_file($file, $template);
-
-		$version = (int) $version;
-		$config = read_file(APPPATH.'config/migration.php');
-		$config = preg_replace('/(\$config\[\'migration_version\'\] =) \d+;/', '$1'." {$version};", $config);
-		write_file(APPPATH.'config/migration.php', $config);
 	}
 
 	public function make_model($name, ...$params)
@@ -1156,11 +1145,25 @@ class Spark extends CI_Controller {
 	public function make_view($name, ...$params)
 	{
 		$name = strtolower($name);
-		$this->options = $this->_parse_params($params, array('force'));
+		$this->options = $this->_parse_params($params, array('force', 'subpath'));
 
 		$force = isset($this->options['force']);
+		$subpath = isset($this->options['subpath']) ? explode('.', $this->options['subpath']) : array();
 
-		$file = VIEWPATH."{$name}.php";
+		$viewpath = VIEWPATH;
+
+		foreach ($subpath as $path)
+		{
+			$viewpath .= "$path/";
+
+			if ( ! is_dir($viewpath))
+			{
+				mkdir($viewpath);
+				copy(APPPATH.'index.html', "{$viewpath}index.html");
+			}
+		}
+
+		$file = $viewpath."{$name}.php";
 
 		if (file_exists($file) === TRUE AND $force === FALSE)
 		{
@@ -1187,7 +1190,7 @@ class Spark extends CI_Controller {
 		}
 		else
 		{
-	    if ($this->migration->current() === FALSE)
+	    if ($this->migration->latest() === FALSE)
 	    {
 	      show_error($this->migration->error_string());
 	    }
@@ -1213,7 +1216,7 @@ class Spark extends CI_Controller {
 		    show_error($this->migration->error_string());
 		  }
 
-		  if ($this->migration->current() === FALSE)
+		  if ($this->migration->latest() === FALSE)
 		  {
 		    show_error($this->migration->error_string());
 		  }
